@@ -1,0 +1,82 @@
+import { defineStore } from 'pinia';
+import { ref } from 'vue';
+import { serviciosAPI } from '@/services/api';
+import type { Servicio, ServiciosFiltros } from '@/types/models';
+
+// Función helper para convertir strings a números
+function parseServicio(servicio: any): Servicio {
+  return {
+    ...servicio,
+    precio: typeof servicio.precio === 'string' ? parseFloat(servicio.precio) : servicio.precio,
+    comision_calculada: typeof servicio.comision_calculada === 'string' ? parseFloat(servicio.comision_calculada) : servicio.comision_calculada,
+  };
+}
+
+export const useServiciosStore = defineStore('servicios', () => {
+  const servicios = ref<Servicio[]>([]);
+  const loading = ref(false);
+  const error = ref<string | null>(null);
+
+  async function cargarServicios(filtros?: ServiciosFiltros) {
+    loading.value = true;
+    error.value = null;
+    try {
+      const response = await serviciosAPI.listar(filtros);
+      servicios.value = response.data.map(parseServicio);
+    } catch (e: any) {
+      error.value = e.response?.data?.detail || 'Error al cargar servicios';
+      throw e;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function registrarServicio(data: {
+    fecha: string;
+    empleado_id: string;
+    tipo_servicio: string;
+    precio: number;
+  }) {
+    loading.value = true;
+    error.value = null;
+    try {
+      const response = await serviciosAPI.crear(data);
+      const servicioParseado = parseServicio(response.data);
+      servicios.value.push(servicioParseado);
+      return servicioParseado;
+    } catch (e: any) {
+      error.value = e.response?.data?.detail || 'Error al registrar servicio';
+      throw e;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function eliminarServicio(id: string) {
+    loading.value = true;
+    error.value = null;
+    try {
+      await serviciosAPI.eliminar(id);
+      servicios.value = servicios.value.filter((servicio) => servicio.id !== id);
+    } catch (e: any) {
+      error.value = e.response?.data?.detail || 'Error al eliminar servicio';
+      throw e;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function filtrarServicios(filtros?: ServiciosFiltros) {
+    return cargarServicios(filtros);
+  }
+
+  return {
+    servicios,
+    loading,
+    error,
+    cargarServicios,
+    registrarServicio,
+    eliminarServicio,
+    filtrarServicios,
+  };
+});

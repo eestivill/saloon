@@ -1,0 +1,127 @@
+"""
+Modelos de dominio para el sistema de gestión de salón de peluquería.
+"""
+from dataclasses import dataclass
+from datetime import date
+from decimal import Decimal
+from typing import List, Any, Dict, Optional
+
+
+@dataclass
+class Empleado:
+    """Modelo de dominio para un empleado del salón."""
+    id: str
+    nombre: str
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Serializa el empleado a diccionario."""
+        return {
+            "id": self.id,
+            "nombre": self.nombre
+        }
+    
+    @classmethod
+    def from_orm(cls, orm_obj: Any) -> 'Empleado':
+        """Crea un Empleado desde un objeto ORM."""
+        return cls(
+            id=orm_obj.id,
+            nombre=orm_obj.nombre
+        )
+
+
+@dataclass
+class TipoServicio:
+    """Modelo de dominio para un tipo de servicio."""
+    nombre: str
+    descripcion: str
+    porcentaje_comision: float
+    precio_por_defecto: Optional[Decimal] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Serializa el tipo de servicio a diccionario."""
+        return {
+            "nombre": self.nombre,
+            "descripcion": self.descripcion,
+            "porcentaje_comision": self.porcentaje_comision,
+            "precio_por_defecto": str(self.precio_por_defecto) if self.precio_por_defecto else None
+        }
+    
+    @classmethod
+    def from_orm(cls, orm_obj: Any) -> 'TipoServicio':
+        """Crea un TipoServicio desde un objeto ORM."""
+        return cls(
+            nombre=orm_obj.nombre,
+            descripcion=orm_obj.descripcion,
+            porcentaje_comision=orm_obj.porcentaje_comision,
+            precio_por_defecto=orm_obj.precio_por_defecto
+        )
+
+
+@dataclass
+class ServicioRegistrado:
+    """Modelo de dominio para un servicio registrado."""
+    id: str
+    fecha: date
+    empleado_id: str
+    tipo_servicio: str
+    precio: Decimal
+    comision_calculada: Decimal
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Serializa el servicio a diccionario."""
+        return {
+            "id": self.id,
+            "fecha": self.fecha.isoformat(),
+            "empleado_id": self.empleado_id,
+            "tipo_servicio": self.tipo_servicio,
+            "precio": str(self.precio),
+            "comision_calculada": str(self.comision_calculada)
+        }
+    
+    @classmethod
+    def from_orm(cls, orm_obj: Any) -> 'ServicioRegistrado':
+        """Crea un ServicioRegistrado desde un objeto ORM."""
+        return cls(
+            id=orm_obj.id,
+            fecha=orm_obj.fecha,
+            empleado_id=orm_obj.empleado_id,
+            tipo_servicio=orm_obj.tipo_servicio,
+            precio=orm_obj.precio,
+            comision_calculada=orm_obj.comision_calculada
+        )
+
+
+@dataclass
+class ServicioDetalle:
+    """Detalle de un servicio para el desglose de pago."""
+    fecha: date
+    tipo_servicio: str
+    precio: Decimal
+    comision: Decimal
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Serializa el detalle a diccionario."""
+        return {
+            "fecha": self.fecha.isoformat(),
+            "tipo_servicio": self.tipo_servicio,
+            "precio": str(self.precio),
+            "comision": str(self.comision)
+        }
+
+
+@dataclass
+class DesglosePago:
+    """Desglose de pago para un empleado."""
+    empleado_id: str
+    empleado_nombre: str
+    servicios: List[ServicioDetalle]
+    total: Decimal
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Serializa el desglose a diccionario."""
+        return {
+            "empleado_id": self.empleado_id,
+            "empleado_nombre": self.empleado_nombre,
+            "servicios": [s.to_dict() for s in self.servicios],
+            "total": str(self.total)
+        }

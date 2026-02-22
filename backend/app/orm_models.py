@@ -1,0 +1,64 @@
+"""
+Modelos ORM de SQLAlchemy para el sistema de gestión de salón de peluquería.
+"""
+from sqlalchemy import Column, String, Float, Date, Numeric, CheckConstraint, Index
+from sqlalchemy.orm import declarative_base
+
+
+Base = declarative_base()
+
+
+class EmpleadoORM(Base):
+    """Modelo ORM para la tabla empleados."""
+    __tablename__ = 'empleados'
+    
+    id = Column(String(50), primary_key=True)
+    nombre = Column(String(100), nullable=False)
+    
+    def __repr__(self):
+        return f"<Empleado(id='{self.id}', nombre='{self.nombre}')>"
+
+
+class TipoServicioORM(Base):
+    """Modelo ORM para la tabla tipos_servicios."""
+    __tablename__ = 'tipos_servicios'
+    
+    nombre = Column(String(50), primary_key=True)
+    descripcion = Column(String(200), nullable=False)
+    porcentaje_comision = Column(Float, nullable=False)
+    precio_por_defecto = Column(Numeric(10, 2), nullable=True)
+    
+    __table_args__ = (
+        CheckConstraint(
+            'porcentaje_comision >= 0 AND porcentaje_comision <= 100',
+            name='check_porcentaje_comision_range'
+        ),
+        CheckConstraint(
+            'precio_por_defecto IS NULL OR precio_por_defecto > 0',
+            name='check_precio_por_defecto_positive'
+        ),
+    )
+    
+    def __repr__(self):
+        return f"<TipoServicio(nombre='{self.nombre}', comision={self.porcentaje_comision}%)>"
+
+
+class ServicioORM(Base):
+    """Modelo ORM para la tabla servicios."""
+    __tablename__ = 'servicios'
+    
+    id = Column(String(50), primary_key=True)
+    fecha = Column(Date, nullable=False, index=True)
+    empleado_id = Column(String(50), nullable=False, index=True)
+    tipo_servicio = Column(String(50), nullable=False)
+    precio = Column(Numeric(10, 2), nullable=False)
+    comision_calculada = Column(Numeric(10, 2), nullable=False)
+    
+    __table_args__ = (
+        CheckConstraint('precio > 0', name='check_precio_positive'),
+        Index('idx_servicios_empleado_fecha', 'empleado_id', 'fecha'),
+        Index('idx_servicios_fecha', 'fecha'),
+    )
+    
+    def __repr__(self):
+        return f"<Servicio(id='{self.id}', empleado='{self.empleado_id}', fecha={self.fecha})>"

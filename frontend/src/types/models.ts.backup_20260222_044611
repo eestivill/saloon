@@ -1,0 +1,71 @@
+export interface Empleado {
+  id: string;
+  nombre: string;
+}
+
+export interface TipoServicio {
+  nombre: string;
+  descripcion: string;
+  porcentaje_comision: number;
+}
+
+export interface Servicio {
+  id: string;
+  fecha: string;
+  empleado_id: string;
+  tipo_servicio: string;
+  precio: number;
+  comision_calculada: number;
+}
+
+export interface ServicioDetalle {
+  fecha: string;
+  tipo_servicio: string;
+  precio: number;
+  comision: number;
+}
+
+export interface DesglosePago {
+  empleado_id: string;
+  empleado_nombre: string;
+  servicios: ServicioDetalle[];
+  total: number;
+}
+
+export interface IngresosResponse {
+  total: number;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+}
+
+export interface BeneficiosResponse {
+  ingresos: number;
+  comisiones: number;
+  beneficios: number;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+}
+
+export interface EmpleadoFormData {
+  id: string;
+  nombre: string;
+}
+
+export interface TipoServicioFormData {
+  nombre: string;
+  descripcion: string;
+  porcentaje_comision: number;
+}
+
+export interface ServicioFormData {
+  fecha: string;
+  empleado_id: string;
+  tipo_servicio: string;
+  precio: number;
+}
+
+export interface ServiciosFiltros {
+  empleado_id?: string;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+}

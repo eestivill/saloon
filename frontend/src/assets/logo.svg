@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50" width="100" height="50">
+  <style>
+    .sm-logo {
+      font-family: 'Brush Script MT', 'Lucida Handwriting', cursive;
+      font-size: 40px;
+      font-style: italic;
+      fill: #1f2937;
+    }
+  </style>
+  <text x="8" y="38" class="sm-logo">SM</text>
+</svg>

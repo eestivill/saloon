@@ -1,0 +1,402 @@
+"""
+Lógica de negocio para el sistema de gestión de salón de peluquería.
+"""
+from typing import Optional, List
+from datetime import date
+from decimal import Decimal
+import uuid
+
+from app.models import Empleado, TipoServicio, ServicioRegistrado, DesglosePago
+from app.repository import DataRepository
+from app.validators import Validator
+from app.result import Result, Ok, Err
+from app.errors import ValidationError, NotFoundError, DuplicateError
+
+
+class SalonManager:
+    """Gestor principal de la lógica de negocio del salón."""
+    
+    def __init__(self, data_repository: DataRepository):
+        """
+        Inicializa el gestor con un repositorio de datos.
+        
+        Args:
+            data_repository: Repositorio para acceso a datos
+        """
+        self.repository = data_repository
+    
+    # Gestión de Empleados
+    
+    def crear_empleado(self, id: str, nombre: str) -> Result[Empleado, ValidationError | DuplicateError]:
+        """
+        Crea un nuevo empleado con validación de ID único.
+        
+        Args:
+            id: Identificador único del empleado
+            nombre: Nombre del empleado
+            
+        Returns:
+            Ok(Empleado) si se crea exitosamente, Err(error) si falla
+        """
+        # Validar que el ID no exista
+        empleados_existentes = self.repository.listar_empleados()
+        ids_existentes = {emp.id for emp in empleados_existentes}
+        
+        validacion_id = Validator.validar_identificador_unico(id, ids_existentes)
+        if isinstance(validacion_id, Err):
+            return Err(DuplicateError(
+                entity="Empleado",
+                identifier=id
+            ))
+        
+        # Crear y guardar el empleado
+        empleado = Empleado(id=id, nombre=nombre)
+        self.repository.guardar_empleado(empleado)
+        
+        return Ok(empleado)
+    
+    def obtener_empleado(self, id: str) -> Optional[Empleado]:
+        """
+        Obtiene un empleado por su ID.
+        
+        Args:
+            id: Identificador del empleado
+            
+        Returns:
+            Empleado si existe, None en caso contrario
+        """
+        return self.repository.obtener_empleado(id)
+    
+    def listar_empleados(self) -> List[Empleado]:
+        """
+        Lista todos los empleados registrados.
+        
+        Returns:
+            Lista de empleados
+        """
+        return self.repository.listar_empleados()
+    
+    def actualizar_empleado(self, id: str, nombre: str) -> Result[Empleado, NotFoundError]:
+        """
+        Actualiza la información de un empleado existente, preservando su ID.
+        
+        Args:
+            id: Identificador del empleado a actualizar
+            nombre: Nuevo nombre del empleado
+            
+        Returns:
+            Ok(Empleado) si se actualiza exitosamente, Err(NotFoundError) si no existe
+        """
+        # Verificar que el empleado existe
+        empleado_existente = self.repository.obtener_empleado(id)
+        
+        if empleado_existente is None:
+            return Err(NotFoundError(
+                entity="Empleado",
+                identifier=id
+            ))
+        
+        # Actualizar el empleado (el ID se preserva)
+        empleado_actualizado = Empleado(id=id, nombre=nombre)
+        self.repository.guardar_empleado(empleado_actualizado)
+        
+        return Ok(empleado_actualizado)
+
+    # Gestión de Tipos de Servicios
+
+    def crear_tipo_servicio(self, nombre: str, descripcion: str,
+                           porcentaje_comision: float) -> Result[TipoServicio, ValidationError | DuplicateError]:
+        """
+        Crea un nuevo tipo de servicio con validación de nombre único y porcentaje.
+
+        Args:
+            nombre: Nombre único del tipo de servicio
+            descripcion: Descripción del servicio
+            porcentaje_comision: Porcentaje de comisión (0-100)
+
+        Returns:
+            Ok(TipoServicio) si se crea exitosamente, Err(error) si falla
+        """
+        # Validar porcentaje de comisión
+        validacion_porcentaje = Validator.validar_porcentaje_comision(porcentaje_comision)
+        if isinstance(validacion_porcentaje, Err):
+            return validacion_porcentaje
+
+        # Validar que el nombre no exista
+        tipos_existentes = self.repository.listar_tipos_servicios()
+        nombres_existentes = {tipo.nombre for tipo in tipos_existentes}
+
+        validacion_nombre = Validator.validar_identificador_unico(nombre, nombres_existentes)
+        if isinstance(validacion_nombre, Err):
+            return Err(DuplicateError(
+                entity="TipoServicio",
+                identifier=nombre
+            ))
+
+        # Crear y guardar el tipo de servicio
+        tipo_servicio = TipoServicio(
+            nombre=nombre,
+            descripcion=descripcion,
+            porcentaje_comision=porcentaje_comision
+        )
+        self.repository.guardar_tipo_servicio(tipo_servicio)
+
+        return Ok(tipo_servicio)
+
+    def obtener_tipo_servicio(self, nombre: str) -> Optional[TipoServicio]:
+        """
+        Obtiene un tipo de servicio por su nombre.
+
+        Args:
+            nombre: Nombre del tipo de servicio
+
+        Returns:
+            TipoServicio si existe, None en caso contrario
+        """
+        return self.repository.obtener_tipo_servicio(nombre)
+
+    def listar_tipos_servicios(self) -> List[TipoServicio]:
+        """
+        Lista todos los tipos de servicios registrados.
+
+        Returns:
+            Lista de tipos de servicios
+        """
+        return self.repository.listar_tipos_servicios()
+
+    def actualizar_tipo_servicio(self, nombre: str,
+                                 porcentaje_comision: float) -> Result[TipoServicio, ValidationError | NotFoundError]:
+        """
+        Actualiza el porcentaje de comisión de un tipo de servicio existente.
+
+        Args:
+            nombre: Nombre del tipo de servicio a actualizar
+            porcentaje_comision: Nuevo porcentaje de comisión (0-100)
+
+        Returns:
+            Ok(TipoServicio) si se actualiza exitosamente, Err(error) si falla
+        """
+        # Validar porcentaje de comisión
+        validacion_porcentaje = Validator.validar_porcentaje_comision(porcentaje_comision)
+        if isinstance(validacion_porcentaje, Err):
+            return validacion_porcentaje
+
+        # Verificar que el tipo de servicio existe
+        tipo_existente = self.repository.obtener_tipo_servicio(nombre)
+
+        if tipo_existente is None:
+            return Err(NotFoundError(
+                entity="TipoServicio",
+                identifier=nombre
+            ))
+
+        # Actualizar el tipo de servicio (preservando nombre y descripción)
+        tipo_actualizado = TipoServicio(
+            nombre=nombre,
+            descripcion=tipo_existente.descripcion,
+            porcentaje_comision=porcentaje_comision
+        )
+        self.repository.guardar_tipo_servicio(tipo_actualizado)
+
+        return Ok(tipo_actualizado)
+
+    # Registro de Servicios
+
+    def registrar_servicio(self, fecha: date, empleado_id: str,
+                          tipo_servicio: str, precio: Decimal) -> Result[ServicioRegistrado, ValidationError | NotFoundError]:
+        """
+        Registra un nuevo servicio con generación automática de ID único.
+
+        Args:
+            fecha: Fecha del servicio
+            empleado_id: ID del empleado que realizó el servicio
+            tipo_servicio: Nombre del tipo de servicio
+            precio: Precio del servicio
+
+        Returns:
+            Ok(ServicioRegistrado) si se registra exitosamente, Err(error) si falla
+        """
+        # Validar precio
+        validacion_precio = Validator.validar_precio(precio)
+        if isinstance(validacion_precio, Err):
+            return validacion_precio
+
+        # Validar que el empleado existe
+        empleado = self.repository.obtener_empleado(empleado_id)
+        if empleado is None:
+            return Err(NotFoundError(
+                entity="Empleado",
+                identifier=empleado_id
+            ))
+
+        # Validar que el tipo de servicio existe
+        tipo = self.repository.obtener_tipo_servicio(tipo_servicio)
+        if tipo is None:
+            return Err(NotFoundError(
+                entity="TipoServicio",
+                identifier=tipo_servicio
+            ))
+
+        # Calcular comisión usando el porcentaje del tipo de servicio
+        comision_calculada = precio * Decimal(str(tipo.porcentaje_comision)) / Decimal("100")
+        # Redondear a 2 decimales para coincidir con la precisión de la base de datos
+        comision_calculada = comision_calculada.quantize(Decimal("0.01"))
+
+        # Generar ID único
+        servicio_id = str(uuid.uuid4())
+
+        # Crear ServicioRegistrado
+        servicio = ServicioRegistrado(
+            id=servicio_id,
+            fecha=fecha,
+            empleado_id=empleado_id,
+            tipo_servicio=tipo_servicio,
+            precio=precio,
+            comision_calculada=comision_calculada
+        )
+
+        # Persistir servicio
+        self.repository.guardar_servicio(servicio)
+
+        return Ok(servicio)
+
+    # Consultas de Servicios
+
+    def obtener_servicios(self, empleado_id: Optional[str] = None,
+                         fecha_inicio: Optional[date] = None,
+                         fecha_fin: Optional[date] = None) -> List[ServicioRegistrado]:
+        """
+        Obtiene servicios con filtros opcionales.
+
+        Args:
+            empleado_id: Filtrar por ID de empleado (opcional)
+            fecha_inicio: Filtrar desde esta fecha (opcional)
+            fecha_fin: Filtrar hasta esta fecha (opcional)
+
+        Returns:
+            Lista de servicios filtrados, ordenados por fecha descendente
+        """
+        # Obtener todos los servicios
+        servicios = self.repository.listar_servicios()
+
+        # Filtrar por empleado_id si se proporciona
+        if empleado_id is not None:
+            servicios = [s for s in servicios if s.empleado_id == empleado_id]
+
+        # Filtrar por fecha_inicio si se proporciona
+        if fecha_inicio is not None:
+            servicios = [s for s in servicios if s.fecha >= fecha_inicio]
+
+        # Filtrar por fecha_fin si se proporciona
+        if fecha_fin is not None:
+            servicios = [s for s in servicios if s.fecha <= fecha_fin]
+
+        # Ordenar por fecha descendente (más recientes primero)
+        servicios.sort(key=lambda s: s.fecha, reverse=True)
+
+        return servicios
+
+    # Cálculos Financieros
+
+    def calcular_ingresos_totales(self, fecha_inicio: Optional[date] = None,
+                                 fecha_fin: Optional[date] = None) -> Decimal:
+        """
+        Calcula los ingresos totales con filtrado opcional por fechas.
+
+        Args:
+            fecha_inicio: Filtrar desde esta fecha (opcional)
+            fecha_fin: Filtrar hasta esta fecha (opcional)
+
+        Returns:
+            Suma de precios de todos los servicios filtrados
+        """
+        # Obtener servicios filtrados
+        servicios = self.obtener_servicios(
+            empleado_id=None,
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin
+        )
+
+        # Sumar precios
+        total = sum((s.precio for s in servicios), Decimal("0"))
+
+        return total
+
+    def calcular_beneficios(self, fecha_inicio: Optional[date] = None,
+                           fecha_fin: Optional[date] = None) -> Decimal:
+        """
+        Calcula los beneficios como ingresos menos comisiones.
+
+        Args:
+            fecha_inicio: Filtrar desde esta fecha (opcional)
+            fecha_fin: Filtrar hasta esta fecha (opcional)
+
+        Returns:
+            Ingresos totales menos suma de comisiones
+        """
+        # Obtener servicios filtrados
+        servicios = self.obtener_servicios(
+            empleado_id=None,
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin
+        )
+
+        # Calcular ingresos y comisiones
+        ingresos = sum((s.precio for s in servicios), Decimal("0"))
+        comisiones = sum((s.comision_calculada for s in servicios), Decimal("0"))
+
+        # Beneficios = ingresos - comisiones
+        beneficios = ingresos - comisiones
+
+        return beneficios
+
+    # Cálculo de Pagos a Empleados
+
+    def calcular_pago_empleado(self, empleado_id: str,
+                              fecha_inicio: Optional[date] = None,
+                              fecha_fin: Optional[date] = None) -> DesglosePago:
+        """
+        Calcula el pago de un empleado con filtrado opcional por fechas.
+
+        Args:
+            empleado_id: ID del empleado
+            fecha_inicio: Filtrar desde esta fecha (opcional)
+            fecha_fin: Filtrar hasta esta fecha (opcional)
+
+        Returns:
+            DesglosePago con lista de servicios y total a pagar
+        """
+        # Obtener empleado
+        empleado = self.repository.obtener_empleado(empleado_id)
+        empleado_nombre = empleado.nombre if empleado else ""
+
+        # Obtener servicios del empleado filtrados por fechas
+        servicios = self.obtener_servicios(
+            empleado_id=empleado_id,
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin
+        )
+
+        # Crear lista de ServicioDetalle
+        from app.models import ServicioDetalle
+        servicios_detalle = [
+            ServicioDetalle(
+                fecha=servicio.fecha,
+                tipo_servicio=servicio.tipo_servicio,
+                precio=servicio.precio,
+                comision=servicio.comision_calculada
+            )
+            for servicio in servicios
+        ]
+
+        # Sumar todas las comisiones
+        total = sum((s.comision for s in servicios_detalle), Decimal("0"))
+
+        # Retornar desglose de pago
+        return DesglosePago(
+            empleado_id=empleado_id,
+            empleado_nombre=empleado_nombre,
+            servicios=servicios_detalle,
+            total=total
+        )
+

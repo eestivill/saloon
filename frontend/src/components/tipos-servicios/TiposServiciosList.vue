@@ -1,0 +1,105 @@
+<template>
+  <div class="container mx-auto px-4 py-6">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+      <h2 class="text-2xl font-bold text-gray-800">Tipos de Servicios</h2>
+      <button
+        @click="mostrarFormulario = true"
+        class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition"
+      >
+        + Nuevo Tipo de Servicio
+      </button>
+    </div>
+
+    <LoadingSpinner v-if="loading" />
+    <ErrorMessage v-else-if="error" :message="error" />
+
+    <div v-else-if="tiposServiciosOrdenados.length === 0" class="text-center py-12">
+      <p class="text-gray-500 text-lg">No hay tipos de servicios registrados</p>
+      <p class="text-gray-400 text-sm mt-2">Haz clic en "Nuevo Tipo de Servicio" para agregar uno</p>
+    </div>
+
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <TipoServicioCard
+        v-for="tipo in tiposServiciosOrdenados"
+        :key="tipo.nombre"
+        :tipo="tipo"
+        @editar="editarTipoServicio"
+        @eliminar="confirmarEliminar"
+      />
+    </div>
+
+    <TipoServicioForm
+      v-if="mostrarFormulario"
+      :tipo="tipoSeleccionado"
+      @guardar="guardarTipoServicio"
+      @cancelar="cerrarFormulario"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import { useTiposServiciosStore } from '@/stores/tiposServicios';
+import { storeToRefs } from 'pinia';
+import TipoServicioCard from './TipoServicioCard.vue';
+import TipoServicioForm from './TipoServicioForm.vue';
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
+import ErrorMessage from '@/components/common/ErrorMessage.vue';
+import type { TipoServicio } from '@/types/models';
+
+const store = useTiposServiciosStore();
+const { tiposServiciosOrdenados, loading, error } = storeToRefs(store);
+
+const mostrarFormulario = ref(false);
+const tipoSeleccionado = ref<TipoServicio | null>(null);
+
+onMounted(() => {
+  store.cargarTiposServicios();
+});
+
+function editarTipoServicio(tipo: TipoServicio) {
+  tipoSeleccionado.value = tipo;
+  mostrarFormulario.value = true;
+}
+
+function cerrarFormulario() {
+  mostrarFormulario.value = false;
+  tipoSeleccionado.value = null;
+}
+
+async function guardarTipoServicio(data: {
+  nombre: string;
+  descripcion: string;
+  porcentaje_comision: number;
+  precio_por_defecto?: number | null;
+}) {
+  try {
+    if (tipoSeleccionado.value) {
+      await store.actualizarTipoServicio(tipoSeleccionado.value.nombre, {
+        descripcion: data.descripcion,
+        porcentaje_comision: data.porcentaje_comision,
+        precio_por_defecto: data.precio_por_defecto,
+      });
+    } else {
+      await store.crearTipoServicio(data);
+    }
+    cerrarFormulario();
+  } catch (e) {
+    console.error('Error al guardar tipo de servicio:', e);
+  }
+}
+
+function confirmarEliminar(nombre: string) {
+  if (confirm('¿Estás seguro de que deseas eliminar este tipo de servicio?')) {
+    eliminarTipoServicio(nombre);
+  }
+}
+
+async function eliminarTipoServicio(nombre: string) {
+  try {
+    await store.eliminarTipoServicio(nombre);
+  } catch (e) {
+    console.error('Error al eliminar tipo de servicio:', e);
+  }
+}
+</script>

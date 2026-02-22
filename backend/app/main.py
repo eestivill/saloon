@@ -29,14 +29,21 @@ app = FastAPI(
 # Configurar middleware CORS para permitir acceso desde frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # URL del frontend en desarrollo
+    allow_origins=[
+        "http://localhost:5173",  # Desarrollo
+        "https://stephany-mondragon-frontend.onrender.com",  # Producción
+        "*"  # Permitir todos los orígenes temporalmente
+    ],  # URL del frontend en desarrollo
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Crear instancias de repositorio y manager
-repository = SQLAlchemyRepository("sqlite:///salon.db")
+# Determinar ruta de base de datos según entorno
+import os
+db_path = os.getenv("DATABASE_PATH", "salon.db")
+repository = SQLAlchemyRepository(f"sqlite:///{db_path}")
 salon_manager = SalonManager(repository)
 
 
